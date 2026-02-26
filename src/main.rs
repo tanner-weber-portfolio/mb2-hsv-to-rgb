@@ -14,7 +14,6 @@
 //!     Potentiometer Pin 2 to P2
 //!     Potentiometer Pin 3 to +3.3V
 
-
 #![no_std]
 #![no_main]
 
@@ -69,10 +68,12 @@ fn main() -> ! {
 
     loop {
         if button_a.is_low().unwrap() {
+            #[cfg(feature = "debug-output")]
             rprintln!("A Pressed");
             state = state.prev();
         }
         if button_b.is_low().unwrap() {
+            #[cfg(feature = "debug-output")]
             rprintln!("B Pressed");
             state = state.next();
         }
@@ -91,11 +92,13 @@ fn main() -> ! {
 
         // blocking read from saadc for `saadc_config.time` microseconds
         let saadc_result = saadc.read_channel(&mut pot_pin);
+        #[cfg(feature = "debug-output")]
         rprintln!("SAADC_RESULT: {:?}", saadc_result);
 
         // read potentiometer
         let rgb = hsv.to_rgb();
 
+        #[cfg(feature = "debug-output")]
         rprintln!("        Board {:?}", leds);
         display.show(&mut timer, leds, FRAMETIME_MS);
     }
