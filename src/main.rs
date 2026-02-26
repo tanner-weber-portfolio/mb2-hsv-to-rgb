@@ -4,6 +4,16 @@
  */
 
 //! Use the Microbit V2 to turn HSV to RGB for an LED
+//!
+//! Wiring
+//!     LED Red to P8
+//!     LED Green to P9
+//!     LED Blue to P16
+//!     LED Power to +3.3V
+//!     Potentiometer Pin 1 to Gnd
+//!     Potentiometer Pin 2 to P2
+//!     Potentiometer Pin 3 to +3.3V
+
 
 #![no_std]
 #![no_main]
@@ -46,7 +56,7 @@ fn main() -> ! {
     let mut leds: [[u8; 5]; 5];
     let mut state = State::Hue;
     let mut hsv = Hsv::new(0f32, 0f32, 0f32);
-    let mut pot_pin = board.edge.e01.into_floating_input();
+    let mut pot_pin = board.edge.e02.into_floating_input();
     let led_r_pin = board.edge.e08.into_push_pull_output(gpio::Level::High);
     let led_g_pin = board.edge.e09.into_push_pull_output(gpio::Level::High);
     let led_b_pin = board.edge.e16.into_push_pull_output(gpio::Level::High);
@@ -81,6 +91,7 @@ fn main() -> ! {
 
         // blocking read from saadc for `saadc_config.time` microseconds
         let saadc_result = saadc.read_channel(&mut pot_pin);
+        rprintln!("SAADC_RESULT: {:?}", saadc_result);
 
         // read potentiometer
         let rgb = hsv.to_rgb();
@@ -98,11 +109,14 @@ struct RgbDisplay {
 }
 
 impl RgbDisplay {
-    fn new<T>(rgb_pins: [gpio::Pin<T>; 3], timer0: Timer<pac::TIMER0>) -> Self {
+    fn new<T>(
+        rgb_pins: [gpio::Pin<T>; 3],
+        timer0: Timer<pac::TIMER0>,
+    ) -> Self {
         todo!()
     }
 
-    fn set(&mut self, hsv: &Hsv) {
+    fn set(&mut self, rgb: &Rgb) {
         todo!()
     }
 
