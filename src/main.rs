@@ -17,16 +17,15 @@
 #![no_std]
 #![no_main]
 
-use core::cell::Cell;
 use cortex_m_rt::entry;
 use critical_section_lock_mut::LockMut;
 use embedded_hal::digital::{InputPin, OutputPin};
 use microbit::{
     display::blocking::Display,
     hal::{
-        self, gpio,
+        gpio,
         pac::{self, interrupt},
-        pwm, saadc,
+        saadc,
         timer::Timer,
     },
 };
