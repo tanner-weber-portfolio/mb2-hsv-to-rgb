@@ -36,11 +36,12 @@ use rtt_target::rprintln;
 const FRAMETIME_MS: u32 = 10;
 const RGB_PWM_BRIGHTNESS_STEP_MICRO_S: u32 = 100;
 
-static LED: LockMut<RgbDisplay> = LockMut::new();
+static LED: LockMut<LedDisplay> = LockMut::new();
 
 #[interrupt]
-fn TIMER0() {
-    rprintln!("INTERRUPT FUNC CALLED")
+fn TIMER1() {
+    #[cfg(feature = "debug-output")]
+    rprintln!("TIMER1 INTERRUPT FUNC CALLED");
 }
 
 #[entry]
@@ -48,7 +49,8 @@ fn main() -> ! {
     rtt_target::rtt_init_print!();
 
     let board = microbit::Board::take().unwrap();
-    let mut timer = Timer::new(board.TIMER0);
+    let mut itimer = Timer::new(board.TIMER0);
+    let mut dtimer = Timer::new(board.TIMER1);
     let mut display = Display::new(board.display_pins);
     let mut button_a = board.buttons.button_a;
     let mut button_b = board.buttons.button_b;
@@ -62,9 +64,19 @@ fn main() -> ! {
     let saadc_config = saadc::SaadcConfig::default();
     let mut saadc = saadc::Saadc::new(board.ADC, saadc_config);
 
-    // Set up the NVIC to handle GPIO interrupts.
-    unsafe { pac::NVIC::unmask(pac::Interrupt::GPIOTE) };
-    pac::NVIC::unpend(pac::Interrupt::GPIOTE);
+    // Set up the NVIC to handle interrupts.
+    unsafe { pac::NVIC::unmask(pac::Interrupt::TIMER0) };
+    pac::NVIC::unpend(pac::Interrupt::TIMER0);
+    itimer.enable_interrupt();
+
+    LED.init(LedDisplay::new(
+        [
+            microbit::gpio::EDGE08::degrade(led_r_pin),
+            microbit::gpio::EDGE09::degrade(led_g_pin),
+            microbit::gpio::EDGE16::degrade(led_b_pin),
+        ],
+        itimer,
+    ));
 
     loop {
         if button_a.is_low().unwrap() {
@@ -100,18 +112,18 @@ fn main() -> ! {
 
         #[cfg(feature = "debug-output")]
         rprintln!("        Board {:?}", leds);
-        display.show(&mut timer, leds, FRAMETIME_MS);
+        display.show(&mut dtimer, leds, FRAMETIME_MS);
     }
 }
 
-struct RgbDisplay {
+struct LedDisplay {
     frame_tick: u32,
     schedule: [u32; 3],
     next_schedule: Option<[u32; 3]>,
     timer0: Timer<pac::TIMER0>,
 }
 
-impl RgbDisplay {
+impl LedDisplay {
     fn new<T>(
         rgb_pins: [gpio::Pin<T>; 3],
         timer0: Timer<pac::TIMER0>,
