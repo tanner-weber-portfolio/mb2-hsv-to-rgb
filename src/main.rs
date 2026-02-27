@@ -35,13 +35,15 @@ use rtt_target::rprintln;
 
 const FRAMETIME_MS: u32 = 10;
 const RGB_PWM_BRIGHTNESS_STEP_MICRO_S: u32 = 100;
+const TICKS_PER_FRAME: u32 = 100;
 
 static LED: LockMut<LedDisplay> = LockMut::new();
 
 #[interrupt]
-fn TIMER1() {
+fn TIMER0() {
     #[cfg(feature = "debug-output")]
-    rprintln!("TIMER1 INTERRUPT FUNC CALLED");
+    rprintln!("TIMER0 INTERRUPT FUNC CALLED");
+    LED.with_lock(|f| f.step());
 }
 
 #[entry]
@@ -71,44 +73,55 @@ fn main() -> ! {
 
     LED.init(LedDisplay::new(
         [
-            microbit::gpio::EDGE08::degrade(led_r_pin),
-            microbit::gpio::EDGE09::degrade(led_g_pin),
-            microbit::gpio::EDGE16::degrade(led_b_pin),
+            led_r_pin.degrade(),
+            led_g_pin.degrade(),
+            led_b_pin.degrade(),
         ],
         itimer,
     ));
+
+    LED.with_lock(|f| {
+        f.step();
+    });
 
     loop {
         if button_a.is_low().unwrap() {
             #[cfg(feature = "debug-output")]
             rprintln!("A Pressed");
-            state = state.prev();
+            state = state.get_prev();
         }
         if button_b.is_low().unwrap() {
             #[cfg(feature = "debug-output")]
             rprintln!("B Pressed");
-            state = state.next();
+            state = state.get_next();
         }
+
+        // blocking read from saadc for `saadc_config.time` microseconds
+        let saadc_result = saadc.read_channel(&mut pot_pin).unwrap();
+        #[cfg(feature = "debug-output")]
+        rprintln!("SAADC_RESULT: {:?}", saadc_result);
+
+        let scaled_val = scale_i16(saadc_result);
 
         match state {
             State::Hue => {
                 leds = letters::get_h();
+                hsv.h = scaled_val;
             }
             State::Saturation => {
                 leds = letters::get_s();
+                hsv.s = scaled_val;
             }
             State::Value => {
                 leds = letters::get_v();
+                hsv.v = scaled_val;
             }
         }
 
-        // blocking read from saadc for `saadc_config.time` microseconds
-        let saadc_result = saadc.read_channel(&mut pot_pin);
-        #[cfg(feature = "debug-output")]
-        rprintln!("SAADC_RESULT: {:?}", saadc_result);
-
-        // read potentiometer
         let rgb = hsv.to_rgb();
+        LED.with_lock(|f| {
+            f.set(&rgb);
+        });
 
         #[cfg(feature = "debug-output")]
         rprintln!("        Board {:?}", leds);
@@ -117,9 +130,12 @@ fn main() -> ! {
 }
 
 struct LedDisplay {
+    /// 100 ticks per frame (100 µs), 100 frames per second (10ms).
     frame_tick: u32,
+    /// What ticks the LEDs should turn off at.
     schedule: [u32; 3],
     next_schedule: Option<[u32; 3]>,
+    rgb_pins: [gpio::Pin<gpio::Output<gpio::PushPull>>; 3],
     timer0: Timer<pac::TIMER0>,
 }
 
@@ -128,18 +144,55 @@ impl LedDisplay {
         rgb_pins: [gpio::Pin<T>; 3],
         timer0: Timer<pac::TIMER0>,
     ) -> Self {
-        todo!()
+        let [pin0, pin1, pin2] = rgb_pins;
+        let pins: [gpio::Pin<gpio::Output<gpio::PushPull>>; 3] = [
+            pin0.into_push_pull_output(gpio::Level::High),
+            pin1.into_push_pull_output(gpio::Level::High),
+            pin2.into_push_pull_output(gpio::Level::High),
+        ];
+        Self {
+            frame_tick: 0,
+            schedule: [0u32; 3],
+            next_schedule: Some([0u32; 3]),
+            rgb_pins: pins,
+            timer0,
+        }
     }
 
+    /// Set up a new schedule, to be started next frame.
     fn set(&mut self, rgb: &Rgb) {
-        todo!()
+        self.next_schedule = Some([
+            (rgb.r * 100f32 - rgb.b * 100f32) as u32,
+            (rgb.g * 100f32) as u32,
+            (rgb.b * 100f32 - rgb.g * 100f32) as u32,
+        ]);
+        self.timer0.start(64000);
     }
 
+    /// Take the next frame update step. Called at startup
+    /// and then from the timer interrupt handler.
     fn step(&mut self) {
-        todo!()
+        if self.frame_tick >= TICKS_PER_FRAME - 1 {
+            self.frame_tick = 0;
+            self.schedule = self.next_schedule.unwrap();
+            self.timer0.start(64000);
+        }
+
+        if self.frame_tick < self.schedule[0] {
+            self.rgb_pins[0].set_low();
+            self.frame_tick += self.schedule[0];
+        } else if self.frame_tick < self.schedule[1] {
+            self.rgb_pins[1].set_low();
+            self.frame_tick += self.schedule[1];
+        } else {
+            self.rgb_pins[2].set_low();
+            self.frame_tick += self.schedule[2];
+        }
     }
 }
 
+/// Hue, Saturation, and Value struct.
+/// Values for each field are between 0 and 1.
 struct Hsv {
     h: f32,
     s: f32,
@@ -150,16 +203,70 @@ impl Hsv {
     fn new(h: f32, s: f32, v: f32) -> Self {
         Hsv { h, s, v }
     }
+
+    /// Converts the 3 HSV values (ranging from 0.0 to 1.0) to RGB values
+    /// (ranging from 0.0 to 1.0).
+    /// Algorithm from https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_RGB
     fn to_rgb(&self) -> Rgb {
-        let rgb = Rgb {
+        let mut rgb = Rgb {
             r: 0f32,
             g: 0f32,
             b: 0f32,
         };
-        rgb
+        let hue_prime = (self.h * 360f32) / 60f32;
+        let sat = self.s;
+        let val = self.v;
+
+        let chroma = val * sat;
+        let x = chroma * (1f32 - (hue_prime % 2f32 - 1f32).abs());
+
+        if hue_prime < 1f32 {
+            rgb.r = chroma;
+            rgb.g = x;
+            rgb.b = 0f32;
+        }
+        if hue_prime < 2f32 {
+            rgb.r = x;
+            rgb.g = chroma;
+            rgb.b = 0f32;
+        }
+        if hue_prime < 3f32 {
+            rgb.r = 0f32;
+            rgb.g = chroma;
+            rgb.b = x;
+        }
+        if hue_prime < 4f32 {
+            rgb.r = 0f32;
+            rgb.g = x;
+            rgb.b = chroma;
+        }
+        if hue_prime < 5f32 {
+            rgb.r = x;
+            rgb.g = 0f32;
+            rgb.b = chroma;
+        }
+        if hue_prime < 6f32 {
+            rgb.r = chroma;
+            rgb.g = 0f32;
+            rgb.b = x;
+        }
+
+        let m = val - chroma;
+
+        rgb.r = rgb.r + m;
+        rgb.g = rgb.g + m;
+        rgb.b = rgb.b + m;
+
+        Rgb {
+            r: rgb.r,
+            g: rgb.g,
+            b: rgb.b,
+        }
     }
 }
 
+/// Red, Green, and Blue colors struct.
+/// Values for each field are between 0 and 1.
 struct Rgb {
     r: f32,
     g: f32,
@@ -173,7 +280,7 @@ enum State {
 }
 
 impl State {
-    fn next(&self) -> Self {
+    fn get_next(&self) -> Self {
         match self {
             Self::Hue => Self::Saturation,
             Self::Saturation => Self::Value,
@@ -181,7 +288,7 @@ impl State {
         }
     }
 
-    fn prev(&self) -> Self {
+    fn get_prev(&self) -> Self {
         match self {
             Self::Hue => Self::Value,
             Self::Saturation => Self::Hue,
@@ -190,6 +297,7 @@ impl State {
     }
 }
 
+/// H, S, and V letters represented on a 5x5 grid.
 mod letters {
     pub(super) fn get_h() -> [[u8; 5]; 5] {
         [
@@ -220,4 +328,11 @@ mod letters {
             [0, 0, 1, 0, 0],
         ]
     }
+}
+
+/// Takes an i16 number expected to be between 0 and 16384 (2^14) and scales
+/// it to a value between 0.0 and 1.0.
+fn scale_i16(n: i16) -> f32 {
+    let n = n.clamp(0, 16000);
+    (n / 16000) as f32
 }
