@@ -220,35 +220,35 @@ impl Hsv {
         let chroma = val * sat;
         let x = chroma * (1f32 - (hue_prime % 2f32 - 1f32).abs());
 
-        if hue_prime < 1f32 {
+        if hue_prime < 6f32 {
             rgb.r = chroma;
-            rgb.g = x;
-            rgb.b = 0f32;
-        }
-        if hue_prime < 2f32 {
-            rgb.r = x;
-            rgb.g = chroma;
-            rgb.b = 0f32;
-        }
-        if hue_prime < 3f32 {
-            rgb.r = 0f32;
-            rgb.g = chroma;
+            rgb.g = 0f32;
             rgb.b = x;
-        }
-        if hue_prime < 4f32 {
-            rgb.r = 0f32;
-            rgb.g = x;
-            rgb.b = chroma;
         }
         if hue_prime < 5f32 {
             rgb.r = x;
             rgb.g = 0f32;
             rgb.b = chroma;
         }
-        if hue_prime < 6f32 {
-            rgb.r = chroma;
-            rgb.g = 0f32;
+        if hue_prime < 4f32 {
+            rgb.r = 0f32;
+            rgb.g = x;
+            rgb.b = chroma;
+        }
+        if hue_prime < 3f32 {
+            rgb.r = 0f32;
+            rgb.g = chroma;
             rgb.b = x;
+        }
+        if hue_prime < 2f32 {
+            rgb.r = x;
+            rgb.g = chroma;
+            rgb.b = 0f32;
+        }
+        if hue_prime < 1f32 {
+            rgb.r = chroma;
+            rgb.g = x;
+            rgb.b = 0f32;
         }
 
         let m = val - chroma;
