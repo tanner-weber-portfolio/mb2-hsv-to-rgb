@@ -33,7 +33,7 @@ use panic_rtt_target as _;
 use rtt_target::rprintln;
 
 const FRAMETIME_MS: u32 = 10;
-const RGB_PWM_BRIGHTNESS_STEP_MICRO_S: u32 = 100;
+const MICRO_SECONDS_PER_STEP: u32 = 100;
 const TICKS_PER_FRAME: u32 = 100;
 
 static LED: LockMut<LedDisplay> = LockMut::new();
@@ -41,8 +41,8 @@ static LED: LockMut<LedDisplay> = LockMut::new();
 #[interrupt]
 fn TIMER0() {
     #[cfg(feature = "debug-output")]
-    rprintln!("TIMER0 INTERRUPT FUNC CALLED");
-    LED.with_lock(|f| f.step());
+    rprintln!("💡💡💡💡💡💡💡💡INTERRUPT FUNC CALLED💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡");
+    LED.with_lock(|led| led.step());
 }
 
 #[entry]
@@ -79,8 +79,8 @@ fn main() -> ! {
         itimer,
     ));
 
-    LED.with_lock(|f| {
-        f.step();
+    LED.with_lock(|led| {
+        led.step();
     });
 
     loop {
@@ -117,9 +117,14 @@ fn main() -> ! {
             }
         }
 
+        #[cfg(feature = "debug-output")]
+        rprintln!("HSV VAlS: {:?}", hsv);
         let rgb = hsv.to_rgb();
-        LED.with_lock(|f| {
-            f.set(&rgb);
+        #[cfg(feature = "debug-output")]
+        rprintln!("RGB VAlS: {:?}", rgb);
+
+        LED.with_lock(|led| {
+            led.set(&rgb);
         });
 
         #[cfg(feature = "debug-output")]
@@ -131,11 +136,12 @@ fn main() -> ! {
 struct LedDisplay {
     /// 100 ticks per frame (100 µs), 100 frames per second (10ms).
     frame_tick: u32,
-    /// What ticks the LEDs should turn off at.
+    /// What ticks the pins should turn off at.
     schedule: [u32; 3],
     next_schedule: Option<[u32; 3]>,
     rgb_pins: [gpio::Pin<gpio::Output<gpio::PushPull>>; 3],
     timer0: Timer<pac::TIMER0>,
+    next_color_index: usize,
 }
 
 impl LedDisplay {
@@ -145,9 +151,9 @@ impl LedDisplay {
     ) -> Self {
         let [pin0, pin1, pin2] = rgb_pins;
         let pins: [gpio::Pin<gpio::Output<gpio::PushPull>>; 3] = [
-            pin0.into_push_pull_output(gpio::Level::High),
-            pin1.into_push_pull_output(gpio::Level::High),
-            pin2.into_push_pull_output(gpio::Level::High),
+            pin0.into_push_pull_output(gpio::Level::Low),
+            pin1.into_push_pull_output(gpio::Level::Low),
+            pin2.into_push_pull_output(gpio::Level::Low),
         ];
         Self {
             frame_tick: 0,
@@ -155,43 +161,50 @@ impl LedDisplay {
             next_schedule: Some([0u32; 3]),
             rgb_pins: pins,
             timer0,
+            next_color_index: 0usize,
         }
     }
 
     /// Set up a new schedule, to be started next frame.
     fn set(&mut self, rgb: &Rgb) {
-        self.next_schedule = Some([
-            (rgb.r * 100f32 - rgb.b * 100f32) as u32,
+        let delays = [
+            (rgb.r * 100f32) as u32,
             (rgb.g * 100f32) as u32,
-            (rgb.b * 100f32 - rgb.g * 100f32) as u32,
-        ]);
-        self.timer0.start(64000);
+            (rgb.b * 100f32) as u32,
+        ];
+        self.next_schedule = Some(delays);
+        rprintln!("SET SCHEDULE: {:?}", self.next_schedule.unwrap());
     }
 
     /// Take the next frame update step. Called at startup
     /// and then from the timer interrupt handler.
+    /// At a new frame (when self.frame_tick == 0), all pins are turned on.
     fn step(&mut self) {
+        rprintln!(" 🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡 {}", self.frame_tick);
+
+        let delay_steps = self.schedule[self.next_color_index] - self.frame_tick;
+
         if self.frame_tick >= TICKS_PER_FRAME - 1 {
             self.frame_tick = 0;
             self.schedule = self.next_schedule.unwrap();
-            self.timer0.start(64000);
+            self.rgb_pins[0].set_low();
+            self.rgb_pins[1].set_low();
+            self.rgb_pins[2].set_low();
+
+            self.timer0.start(delay_steps);
+            rprintln!("NEW FRAME");
         }
 
-        if self.frame_tick < self.schedule[0] {
-            self.rgb_pins[0].set_low();
-            self.frame_tick += self.schedule[0];
-        } else if self.frame_tick < self.schedule[1] {
-            self.rgb_pins[1].set_low();
-            self.frame_tick += self.schedule[1];
-        } else {
-            self.rgb_pins[2].set_low();
-            self.frame_tick += self.schedule[2];
-        }
+        self.rgb_pins[self.next_color_index].set_high();
+        self.frame_tick += self.schedule[self.next_color_index];
+        self.timer0.reset_event();
+        self.timer0.start(delay_steps);
     }
 }
 
 /// Hue, Saturation, and Value struct.
 /// Values for each field are between 0 and 1.
+#[derive(Debug)]
 struct Hsv {
     h: f32,
     s: f32,
@@ -266,12 +279,14 @@ impl Hsv {
 
 /// Red, Green, and Blue colors struct.
 /// Values for each field are between 0 and 1.
+#[derive(Debug)]
 struct Rgb {
     r: f32,
     g: f32,
     b: f32,
 }
 
+#[derive(Debug)]
 enum State {
     Hue,
     Saturation,
@@ -333,5 +348,5 @@ mod letters {
 /// it to a value between 0.0 and 1.0.
 fn scale_i16(n: i16) -> f32 {
     let n = n.clamp(0, 16000);
-    (n / 16000) as f32
+    (n as f32 / 16000f32) as f32
 }
