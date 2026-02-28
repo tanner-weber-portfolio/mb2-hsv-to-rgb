@@ -41,7 +41,9 @@ static LED: LockMut<LedDisplay> = LockMut::new();
 #[interrupt]
 fn TIMER0() {
     #[cfg(feature = "debug-output")]
-    rprintln!("💡💡💡💡💡💡💡💡INTERRUPT FUNC CALLED💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡");
+    rprintln!(
+        "💡💡💡💡💡💡💡💡INTERRUPT FUNC CALLED💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡"
+    );
     LED.with_lock(|led| led.step());
 }
 
@@ -134,14 +136,14 @@ fn main() -> ! {
 }
 
 struct LedDisplay {
-    /// 100 ticks per frame (100 µs), 100 frames per second (10ms).
-    frame_tick: u32,
-    /// What ticks the pins should turn off at.
-    schedule: [u32; 3],
-    next_schedule: Option<[u32; 3]>,
+    /// The precise schedule for the order to turn pins off (from soonest to
+    /// latest) and the delay to wait to turn off the next pin.
+    schedule: [(Color, u32); 3],
+    next_schedule: [(Color, u32); 3],
+    end_delay: u32,
+    color_index: usize,
     rgb_pins: [gpio::Pin<gpio::Output<gpio::PushPull>>; 3],
     timer0: Timer<pac::TIMER0>,
-    next_color_index: usize,
 }
 
 impl LedDisplay {
@@ -155,51 +157,80 @@ impl LedDisplay {
             pin1.into_push_pull_output(gpio::Level::Low),
             pin2.into_push_pull_output(gpio::Level::Low),
         ];
+        let schedule = [
+            (Color::Red, 0u32),
+            (Color::Green, 0u32),
+            (Color::Blue, 0u32),
+        ];
         Self {
-            frame_tick: 0,
-            schedule: [0u32; 3],
-            next_schedule: Some([0u32; 3]),
+            schedule: schedule.clone(),
+            next_schedule: schedule,
+            end_delay: 0u32,
             rgb_pins: pins,
             timer0,
-            next_color_index: 0usize,
+            color_index: 3usize,
         }
     }
 
     /// Set up a new schedule, to be started next frame.
     fn set(&mut self, rgb: &Rgb) {
-        let delays = [
-            (rgb.r * 100f32) as u32,
-            (rgb.g * 100f32) as u32,
-            (rgb.b * 100f32) as u32,
+        let mut s = [
+            (Color::Red, (rgb.r * 100f32) as u32),
+            (Color::Green, (rgb.g * 100f32) as u32),
+            (Color::Blue, (rgb.b * 100f32) as u32),
         ];
-        self.next_schedule = Some(delays);
-        rprintln!("SET SCHEDULE: {:?}", self.next_schedule.unwrap());
+        s[..].sort_unstable_by_key(|&(_, delay)| delay);
+        rprintln!("__SORTED SCHEDULE: {:?}", s);
+        s[1].1 -= s[0].1;
+        s[2].1 -= s[1].1;
+        self.end_delay = TICKS_PER_FRAME - s[1].1;
+        self.next_schedule = s;
+        rprintln!(
+            "SET SCHEDULE: {:?} {:?}",
+            self.next_schedule,
+            self.end_delay
+        );
     }
 
     /// Take the next frame update step. Called at startup
     /// and then from the timer interrupt handler.
-    /// At a new frame (when self.frame_tick == 0), all pins are turned on.
+    /// At a new frame, all pins are turned on.
+    /// 100 ticks per frame (100 µs), 100 frames per second (10ms).
     fn step(&mut self) {
-        rprintln!(" 🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡🤡 {}", self.frame_tick);
-
-        let delay_steps = self.schedule[self.next_color_index] - self.frame_tick;
-
-        if self.frame_tick >= TICKS_PER_FRAME - 1 {
-            self.frame_tick = 0;
-            self.schedule = self.next_schedule.unwrap();
+        // Check to see if we should start a new frame.
+        if self.color_index >= 3 {
+            self.color_index = 0;
             self.rgb_pins[0].set_low();
             self.rgb_pins[1].set_low();
             self.rgb_pins[2].set_low();
-
-            self.timer0.start(delay_steps);
+            self.schedule = self.next_schedule.clone();
+            self.timer0.reset_event();
+            self.timer0
+                .start(MICRO_SECONDS_PER_STEP * self.schedule[0].1);
             rprintln!("NEW FRAME");
+            return;
         }
 
-        self.rgb_pins[self.next_color_index].set_high();
-        self.frame_tick += self.schedule[self.next_color_index];
+        if self.end_delay > 0 {
+            self.color_index = 3;
+            self.timer0.reset_event();
+            self.timer0.start(MICRO_SECONDS_PER_STEP * self.end_delay);
+            return;
+        }
+
+        let delay_steps = self.schedule[self.color_index].1;
+        self.rgb_pins[self.color_index].set_high();
+        self.color_index += 1;
         self.timer0.reset_event();
-        self.timer0.start(delay_steps);
+        self.timer0.start(MICRO_SECONDS_PER_STEP * delay_steps);
     }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+enum Color {
+    Red,
+    Green,
+    Blue,
 }
 
 /// Hue, Saturation, and Value struct.
@@ -265,9 +296,9 @@ impl Hsv {
 
         let m = val - chroma;
 
-        rgb.r = rgb.r + m;
-        rgb.g = rgb.g + m;
-        rgb.b = rgb.b + m;
+        rgb.r += m;
+        rgb.g += m;
+        rgb.b += m;
 
         Rgb {
             r: rgb.r,
@@ -348,5 +379,5 @@ mod letters {
 /// it to a value between 0.0 and 1.0.
 fn scale_i16(n: i16) -> f32 {
     let n = n.clamp(0, 16000);
-    (n as f32 / 16000f32) as f32
+    n as f32 / 16000f32
 }
