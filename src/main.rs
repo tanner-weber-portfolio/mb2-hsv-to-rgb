@@ -24,6 +24,7 @@ use microbit::{
     display::blocking::Display,
     hal::{
         gpio,
+        gpio::Level,
         pac::{self, interrupt},
         saadc,
         timer::Timer,
@@ -35,6 +36,7 @@ use rtt_target::rprintln;
 const FRAMETIME_MS: u32 = 10;
 const MICRO_SECONDS_PER_STEP: u32 = 100;
 const TICKS_PER_FRAME: u32 = 100;
+const POT_PIN_MAX_READ: i16 = 16_000;
 
 static LED: LockMut<LedDisplay> = LockMut::new();
 
@@ -61,9 +63,9 @@ fn main() -> ! {
     let mut state = State::Hue;
     let mut hsv = Hsv::new(0f32, 0f32, 0f32);
     let mut pot_pin = board.edge.e02.into_floating_input();
-    let led_r_pin = board.edge.e08.into_push_pull_output(gpio::Level::High);
-    let led_g_pin = board.edge.e09.into_push_pull_output(gpio::Level::High);
-    let led_b_pin = board.edge.e16.into_push_pull_output(gpio::Level::High);
+    let led_r_pin = board.edge.e08.degrade();
+    let led_g_pin = board.edge.e09.degrade();
+    let led_b_pin = board.edge.e16.degrade();
     let saadc_config = saadc::SaadcConfig::default();
     let mut saadc = saadc::Saadc::new(board.ADC, saadc_config);
 
@@ -72,14 +74,7 @@ fn main() -> ! {
     pac::NVIC::unpend(pac::Interrupt::TIMER0);
     itimer.enable_interrupt();
 
-    LED.init(LedDisplay::new(
-        [
-            led_r_pin.degrade(),
-            led_g_pin.degrade(),
-            led_b_pin.degrade(),
-        ],
-        itimer,
-    ));
+    LED.init(LedDisplay::new([led_r_pin, led_g_pin, led_b_pin], itimer));
 
     LED.with_lock(|led| {
         led.step();
@@ -153,9 +148,9 @@ impl LedDisplay {
     ) -> Self {
         let [pin0, pin1, pin2] = rgb_pins;
         let pins: [gpio::Pin<gpio::Output<gpio::PushPull>>; 3] = [
-            pin0.into_push_pull_output(gpio::Level::Low),
-            pin1.into_push_pull_output(gpio::Level::Low),
-            pin2.into_push_pull_output(gpio::Level::Low),
+            pin0.into_push_pull_output(Level::Low),
+            pin1.into_push_pull_output(Level::Low),
+            pin2.into_push_pull_output(Level::Low),
         ];
         let schedule = [
             (Color::Red, 0u32),
@@ -378,6 +373,6 @@ mod letters {
 /// Takes an i16 number expected to be between 0 and 16384 (2^14) and scales
 /// it to a value between 0.0 and 1.0.
 fn scale_i16(n: i16) -> f32 {
-    let n = n.clamp(0, 16000);
-    n as f32 / 16000f32
+    let n = n.clamp(0, POT_PIN_MAX_READ);
+    n as f32 / POT_PIN_MAX_READ as f32
 }
