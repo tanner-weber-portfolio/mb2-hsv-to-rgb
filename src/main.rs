@@ -34,7 +34,7 @@ use panic_rtt_target as _;
 use rtt_target::rprintln;
 
 const FRAMETIME_MS: u32 = 10;
-const MICRO_SECONDS_PER_STEP: u32 = 100;
+const MICRO_SEC_PER_STEP: u32 = 100;
 const TICKS_PER_FRAME: u32 = 100;
 const POT_PIN_MAX_READ: i16 = 16_000;
 
@@ -193,23 +193,25 @@ impl LedDisplay {
     /// 100 ticks per frame (100 µs), 100 frames per second (10ms).
     fn step(&mut self) {
         // Check to see if we should start a new frame.
-        if self.color_index >= 3 {
+        if self.color_index > 2 {
             self.color_index = 0;
             self.rgb_pins[0].set_low();
             self.rgb_pins[1].set_low();
             self.rgb_pins[2].set_low();
             self.schedule = self.next_schedule.clone();
             self.timer0.reset_event();
-            self.timer0
-                .start(MICRO_SECONDS_PER_STEP * self.schedule[0].1);
-            rprintln!("NEW FRAME");
+            let d = MICRO_SEC_PER_STEP
+                * self.schedule[0].1.clamp(1u32, 4_000_000_000u32);
+            self.timer0.start(d);
             return;
         }
 
-        if self.end_delay > 0 {
-            self.color_index = 3;
+        // Delay at the end of the frame.
+        if self.color_index == 3 {
             self.timer0.reset_event();
-            self.timer0.start(MICRO_SECONDS_PER_STEP * self.end_delay);
+            let d = MICRO_SEC_PER_STEP
+                * self.end_delay.clamp(1u32, 4_000_000_000u32);
+            self.timer0.start(d);
             return;
         }
 
@@ -217,7 +219,8 @@ impl LedDisplay {
         self.rgb_pins[self.color_index].set_high();
         self.color_index += 1;
         self.timer0.reset_event();
-        self.timer0.start(MICRO_SECONDS_PER_STEP * delay_steps);
+        let d = MICRO_SEC_PER_STEP * delay_steps.clamp(1u32, 4_000_000_000u32);
+        self.timer0.start(d);
     }
 }
 
