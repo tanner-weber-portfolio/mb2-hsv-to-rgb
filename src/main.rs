@@ -37,6 +37,7 @@ const FRAMETIME_MS: u32 = 10;
 const MICRO_SEC_PER_STEP: u32 = 100;
 const TICKS_PER_FRAME: u32 = 100;
 const POT_PIN_MAX_READ: i16 = 16_000;
+const BUTTON_DELAY_FRAMES_COUNT: u32 = 15;
 
 static LED: LockMut<LedDisplay> = LockMut::new();
 
@@ -59,6 +60,7 @@ fn main() -> ! {
     let mut display = Display::new(board.display_pins);
     let mut button_a = board.buttons.button_a;
     let mut button_b = board.buttons.button_b;
+    let mut button_delay: u32 = 0;
     let mut leds: [[u8; 5]; 5];
     let mut state = State::Hue;
     let mut hsv = Hsv::new(0f32, 0f32, 0f32);
@@ -81,16 +83,20 @@ fn main() -> ! {
     });
 
     loop {
-        if button_a.is_low().unwrap() {
-            #[cfg(feature = "debug-output")]
-            rprintln!("A Pressed");
-            state = state.get_prev();
+        if button_delay == 0 {
+            if button_a.is_low().unwrap() {
+                #[cfg(feature = "debug-output")]
+                rprintln!("A Pressed");
+                state = state.get_prev();
+            }
+            if button_b.is_low().unwrap() {
+                #[cfg(feature = "debug-output")]
+                rprintln!("B Pressed");
+                state = state.get_next();
+            }
+            button_delay = BUTTON_DELAY_FRAMES_COUNT;
         }
-        if button_b.is_low().unwrap() {
-            #[cfg(feature = "debug-output")]
-            rprintln!("B Pressed");
-            state = state.get_next();
-        }
+        button_delay = button_delay.saturating_sub(1);
 
         // blocking read from saadc for `saadc_config.time` microseconds
         let saadc_result = saadc.read_channel(&mut pot_pin).unwrap();
@@ -355,7 +361,7 @@ mod letters {
     pub(super) fn get_s() -> [[u8; 5]; 5] {
         [
             [0, 1, 1, 1, 0],
-            [1, 0, 0, 1, 0],
+            [1, 0, 0, 0, 0],
             [0, 1, 1, 0, 0],
             [0, 0, 0, 1, 0],
             [1, 1, 1, 0, 0],
