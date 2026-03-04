@@ -206,8 +206,7 @@ impl LedDisplay {
             self.rgb_pins[2].set_low();
             self.schedule = self.next_schedule.clone();
             self.timer0.reset_event();
-            let d = MICRO_SEC_PER_STEP
-                * self.schedule[0].1.clamp(1u32, 4_000_000_000u32);
+            let d = MICRO_SEC_PER_STEP * self.schedule[0].1.max(1u32);
             self.timer0.start(d);
             return;
         }
@@ -215,8 +214,7 @@ impl LedDisplay {
         // Delay at the end of the frame.
         if self.color_index == 3 {
             self.timer0.reset_event();
-            let d = MICRO_SEC_PER_STEP
-                * self.end_delay.clamp(1u32, 4_000_000_000u32);
+            let d = MICRO_SEC_PER_STEP * self.end_delay.max(1u32);
             self.timer0.start(d);
             return;
         }
@@ -225,7 +223,7 @@ impl LedDisplay {
         self.rgb_pins[self.color_index].set_high();
         self.color_index += 1;
         self.timer0.reset_event();
-        let d = MICRO_SEC_PER_STEP * delay_steps.clamp(1u32, 4_000_000_000u32);
+        let d = MICRO_SEC_PER_STEP * delay_steps.max(1u32);
         self.timer0.start(d);
     }
 }
