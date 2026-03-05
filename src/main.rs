@@ -134,8 +134,6 @@ fn main() -> ! {
             led.set(&rgb);
         });
 
-        #[cfg(feature = "debug-output")]
-        rprintln!("        Board {:?}", leds);
         display.show(&mut dtimer, leds, FRAMETIME_MS);
     }
 }
@@ -204,33 +202,75 @@ impl LedDisplay {
     /// At a new frame, all pins are turned on.
     /// 100 ticks per frame (100 µs), 100 frames per second (10ms).
     fn step(&mut self) {
-        // Check to see if we should start a new frame.
-        if self.color_index > 2 {
-            self.color_index = 0;
-            self.rgb_pins[0].set_low();
-            self.rgb_pins[1].set_low();
-            self.rgb_pins[2].set_low();
-            self.schedule = self.next_schedule.clone();
-            self.timer0.reset_event();
-            let d = MICRO_SEC_PER_STEP * self.schedule[0].1.max(1u32);
-            self.timer0.start(d);
-            return;
-        }
+        match self.color_index {
+            0 => {
+                self.schedule = self.next_schedule.clone();
+                self.rgb_pins[0].set_low();
+                self.rgb_pins[1].set_low();
+                self.rgb_pins[2].set_low();
+                let delay_steps = self.schedule[0].1;
+                let d = MICRO_SEC_PER_STEP * delay_steps.max(20u32);
 
-        // Delay at the end of the frame.
-        if self.color_index == 3 {
-            self.timer0.reset_event();
-            let d = MICRO_SEC_PER_STEP * self.end_delay.max(1u32);
-            self.timer0.start(d);
-            return;
-        }
+                rprintln!(
+                    "-------------------------FRAME BEGIN-------------------------------"
+                );
+                rprintln!("SCHEDULE: {:?}", self.schedule);
+                rprintln!("START OF FRAME: delaying for {:?}", delay_steps);
+                self.color_index = 1;
+                self.timer0.reset_event();
+                self.timer0.start(d);
+            }
+            1 => {
+                self.rgb_pins[0].set_high();
+                self.rgb_pins[1].set_low();
+                self.rgb_pins[2].set_low();
+                let delay_steps = self.schedule[1].1;
+                let d = MICRO_SEC_PER_STEP * delay_steps.max(20u32);
 
-        let delay_steps = self.schedule[self.color_index].1;
-        self.rgb_pins[self.color_index].set_high();
-        self.color_index += 1;
-        self.timer0.reset_event();
-        let d = MICRO_SEC_PER_STEP * delay_steps.max(1u32);
-        self.timer0.start(d);
+                rprintln!(
+                    "SET {:?} OFF: delaying for {:?}",
+                    self.schedule[0],
+                    delay_steps
+                );
+                self.color_index = 2;
+                self.timer0.reset_event();
+                self.timer0.start(d);
+            }
+            2 => {
+                self.rgb_pins[0].set_high();
+                self.rgb_pins[1].set_high();
+                self.rgb_pins[2].set_low();
+                let delay_steps = self.schedule[2].1;
+                let d = MICRO_SEC_PER_STEP * delay_steps.max(20u32);
+
+                rprintln!(
+                    "SET {:?} OFF: delaying for {:?}",
+                    self.schedule[1],
+                    delay_steps
+                );
+                self.color_index = 3;
+                self.timer0.reset_event();
+                self.timer0.start(d);
+            }
+            _ => {
+                self.rgb_pins[0].set_high();
+                self.rgb_pins[1].set_high();
+                self.rgb_pins[2].set_high();
+                let d = MICRO_SEC_PER_STEP * self.end_delay.max(20u32);
+
+                rprintln!(
+                    "SET {:?} OFF: delaying for {:?}",
+                    self.schedule[2],
+                    self.end_delay
+                );
+                rprintln!(
+                    "-------------------------FRAME END-------------------------------"
+                );
+                self.color_index = 0;
+                self.timer0.reset_event();
+                self.timer0.start(d);
+            }
+        }
     }
 }
 
