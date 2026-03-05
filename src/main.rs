@@ -202,6 +202,8 @@ impl LedDisplay {
     /// At a new frame, all pins are turned on.
     /// 100 ticks per frame (100 µs), 100 frames per second (10ms).
     fn step(&mut self) {
+        self.timer0.reset_event();
+        rprintln!("👻 STEPPED STEPPED STEPPED");
         match self.color_index {
             0 => {
                 self.schedule = self.next_schedule.clone();
@@ -217,7 +219,6 @@ impl LedDisplay {
                 rprintln!("SCHEDULE: {:?}", self.schedule);
                 rprintln!("START OF FRAME: delaying for {:?}", delay_steps);
                 self.color_index = 1;
-                self.timer0.reset_event();
                 self.timer0.start(d);
             }
             1 => {
@@ -233,7 +234,6 @@ impl LedDisplay {
                     delay_steps
                 );
                 self.color_index = 2;
-                self.timer0.reset_event();
                 self.timer0.start(d);
             }
             2 => {
@@ -249,7 +249,6 @@ impl LedDisplay {
                     delay_steps
                 );
                 self.color_index = 3;
-                self.timer0.reset_event();
                 self.timer0.start(d);
             }
             _ => {
@@ -267,7 +266,6 @@ impl LedDisplay {
                     "-------------------------FRAME END-------------------------------"
                 );
                 self.color_index = 0;
-                self.timer0.reset_event();
                 self.timer0.start(d);
             }
         }
