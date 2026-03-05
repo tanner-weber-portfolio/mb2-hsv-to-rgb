@@ -107,15 +107,15 @@ fn main() -> ! {
 
         match state {
             State::Hue => {
-                leds = letters::get_h();
+                leds = letters::H;
                 hsv.h = scaled_val;
             }
             State::Saturation => {
-                leds = letters::get_s();
+                leds = letters::S;
                 hsv.s = scaled_val;
             }
             State::Value => {
-                leds = letters::get_v();
+                leds = letters::V;
                 hsv.v = scaled_val;
             }
         }
@@ -344,42 +344,36 @@ impl State {
     }
 }
 
-/// H, S, and V letters represented on a 5x5 grid.
-mod letters {
-    pub(super) fn get_h() -> [[u8; 5]; 5] {
-        [
-            [0, 1, 0, 1, 0],
-            [0, 1, 0, 1, 0],
-            [0, 1, 1, 1, 0],
-            [0, 1, 0, 1, 0],
-            [0, 1, 0, 1, 0],
-        ]
-    }
-
-    pub(super) fn get_s() -> [[u8; 5]; 5] {
-        [
-            [0, 1, 1, 1, 0],
-            [1, 0, 0, 0, 0],
-            [0, 1, 1, 0, 0],
-            [0, 0, 0, 1, 0],
-            [1, 1, 1, 0, 0],
-        ]
-    }
-
-    pub(super) fn get_v() -> [[u8; 5]; 5] {
-        [
-            [0, 1, 0, 1, 0],
-            [0, 1, 0, 1, 0],
-            [0, 1, 0, 1, 0],
-            [0, 1, 0, 1, 0],
-            [0, 0, 1, 0, 0],
-        ]
-    }
-}
-
 /// Takes an i16 number expected to be between 0 and 16384 (2^14) and scales
 /// it to a value between 0.0 and 1.0.
 fn scale_i16(n: i16) -> f32 {
     let n = n.clamp(0, POT_PIN_MAX_READ);
     n as f32 / POT_PIN_MAX_READ as f32
+}
+
+/// H, S, and V letters represented on a 5x5 grid.
+mod letters {
+    pub(super) const H: [[u8; 5]; 5] = [
+        [0, 1, 0, 1, 0],
+        [0, 1, 0, 1, 0],
+        [0, 1, 1, 1, 0],
+        [0, 1, 0, 1, 0],
+        [0, 1, 0, 1, 0],
+    ];
+
+    pub(super) const S: [[u8; 5]; 5] = [
+        [0, 1, 1, 1, 0],
+        [1, 0, 0, 0, 0],
+        [0, 1, 1, 0, 0],
+        [0, 0, 0, 1, 0],
+        [1, 1, 1, 0, 0],
+    ];
+
+    pub(super) const V: [[u8; 5]; 5] = [
+        [0, 1, 0, 1, 0],
+        [0, 1, 0, 1, 0],
+        [0, 1, 0, 1, 0],
+        [0, 1, 0, 1, 0],
+        [0, 0, 1, 0, 0],
+    ];
 }
