@@ -38,15 +38,17 @@ const MICRO_SEC_PER_STEP: u32 = 100;
 const TICKS_PER_FRAME: u32 = 100;
 const POT_PIN_MAX_READ: i16 = 16_000;
 const BUTTON_DELAY_FRAMES_COUNT: u32 = 15;
+const INITIAL_HUE: f32 = 0.99;
+const INITIAL_SAT: f32 = 0.99;
+const INITIAL_VAL: f32 = 0.99;
+const HSV_MAX: f32 = 1.0;
 
 static LED: LockMut<LedDisplay> = LockMut::new();
 
 #[interrupt]
 fn TIMER0() {
     #[cfg(feature = "debug-output")]
-    rprintln!(
-        "💡💡💡💡💡💡💡💡INTERRUPT FUNC CALLED💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡💡"
-    );
+    rprintln!("💡INTERRUPT FUNC CALLED 💡");
     LED.with_lock(|led| led.step());
 }
 
@@ -63,7 +65,7 @@ fn main() -> ! {
     let mut button_delay: u32 = 0;
     let mut leds: [[u8; 5]; 5];
     let mut state = State::Hue;
-    let mut hsv = Hsv::new(0f32, 0f32, 0f32);
+    let mut hsv = Hsv::new(INITIAL_HUE, INITIAL_SAT, INITIAL_VAL).unwrap();
     let mut pot_pin = board.edge.e02.into_floating_input();
     let led_r_pin = board.edge.e08.degrade();
     let led_g_pin = board.edge.e09.degrade();
@@ -245,8 +247,11 @@ struct Hsv {
 }
 
 impl Hsv {
-    fn new(h: f32, s: f32, v: f32) -> Self {
-        Hsv { h, s, v }
+    fn new(h: f32, s: f32, v: f32) -> Result<Self, Error> {
+        if h > HSV_MAX || s > HSV_MAX || v > HSV_MAX {
+            return Err(Error::OutOfValidRange);
+        }
+        Ok(Hsv { h, s, v })
     }
 
     /// Converts the 3 HSV values (ranging from 0.0 to 1.0) to RGB values
@@ -349,6 +354,11 @@ impl State {
 fn scale_i16(n: i16) -> f32 {
     let n = n.clamp(0, POT_PIN_MAX_READ);
     n as f32 / POT_PIN_MAX_READ as f32
+}
+
+#[derive(Debug)]
+pub enum Error {
+    OutOfValidRange,
 }
 
 /// H, S, and V letters represented on a 5x5 grid.
