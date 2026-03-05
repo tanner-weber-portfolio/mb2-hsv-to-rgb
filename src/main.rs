@@ -31,6 +31,8 @@ use microbit::{
     },
 };
 use panic_rtt_target as _;
+
+#[allow(unused_imports)]
 use rtt_target::rprintln;
 
 const FRAMETIME_MS: u32 = 10;
@@ -183,13 +185,15 @@ impl LedDisplay {
             (Color::Blue, (rgb.b * 100f32) as u32),
         ];
         s[..].sort_unstable_by_key(|&(_, delay)| delay);
-        rprintln!("__SORTED SCHEDULE: {:?}", s);
+        #[cfg(feature = "debug-output")]
+        rprintln!("SORTED SCHEDULE: {:?}", s);
         s[1].1 -= s[0].1;
         s[2].1 -= s[1].1;
-        self.end_delay = TICKS_PER_FRAME - s[1].1;
+        self.end_delay = TICKS_PER_FRAME - (s[2].1 + s[1].1 + s[0].1);
         self.next_schedule = s;
+        #[cfg(feature = "debug-output")]
         rprintln!(
-            "SET SCHEDULE: {:?} {:?}",
+            "INTERRUPT DELAY SCHEDULE: {:?} {:?}",
             self.next_schedule,
             self.end_delay
         );
