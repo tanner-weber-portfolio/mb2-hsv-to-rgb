@@ -302,9 +302,7 @@ impl Hsv {
     /// (ranging from 0.0 to 1.0).
     /// Algorithm from https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_RGB
     fn to_rgb(&mut self) -> Rgb {
-        self.h = self.h.clamp(0f32, 0.9999f32);
-        self.s = self.s.clamp(0f32, 0.9999f32);
-        self.v = self.v.clamp(0f32, 0.9999f32);
+        self.h = self.h % 1f32;
 
         let mut rgb = Rgb {
             r: 0f32,
@@ -318,35 +316,30 @@ impl Hsv {
         let chroma = val * sat;
         let x = chroma * (1f32 - (hue_prime % 2f32 - 1f32).abs());
 
-        if hue_prime < 6f32 {
-            rgb.r = chroma;
-            rgb.g = 0f32;
-            rgb.b = x;
-        }
-        if hue_prime < 5f32 {
-            rgb.r = x;
-            rgb.g = 0f32;
-            rgb.b = chroma;
-        }
-        if hue_prime < 4f32 {
-            rgb.r = 0f32;
-            rgb.g = x;
-            rgb.b = chroma;
-        }
-        if hue_prime < 3f32 {
-            rgb.r = 0f32;
-            rgb.g = chroma;
-            rgb.b = x;
-        }
-        if hue_prime < 2f32 {
-            rgb.r = x;
-            rgb.g = chroma;
-            rgb.b = 0f32;
-        }
         if hue_prime < 1f32 {
             rgb.r = chroma;
             rgb.g = x;
             rgb.b = 0f32;
+        } else if hue_prime < 2f32 {
+            rgb.r = x;
+            rgb.g = chroma;
+            rgb.b = 0f32;
+        } else if hue_prime < 3f32 {
+            rgb.r = 0f32;
+            rgb.g = chroma;
+            rgb.b = x;
+        } else if hue_prime < 4f32 {
+            rgb.r = 0f32;
+            rgb.g = x;
+            rgb.b = chroma;
+        } else if hue_prime < 5f32 {
+            rgb.r = x;
+            rgb.g = 0f32;
+            rgb.b = chroma;
+        } else {
+            rgb.r = chroma;
+            rgb.g = 0f32;
+            rgb.b = x;
         }
 
         let m = val - chroma;
