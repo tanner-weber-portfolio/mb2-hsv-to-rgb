@@ -261,7 +261,11 @@ impl Hsv {
     /// Converts the 3 HSV values (ranging from 0.0 to 1.0) to RGB values
     /// (ranging from 0.0 to 1.0).
     /// Algorithm from https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_RGB
-    fn to_rgb(&self) -> Rgb {
+    fn to_rgb(&mut self) -> Rgb {
+        self.h = self.h.clamp(0f32, 0.9999f32);
+        self.s = self.s.clamp(0f32, 0.9999f32);
+        self.v = self.v.clamp(0f32, 0.9999f32);
+
         let mut rgb = Rgb {
             r: 0f32,
             g: 0f32,
