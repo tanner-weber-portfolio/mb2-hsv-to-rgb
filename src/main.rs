@@ -274,8 +274,9 @@ impl Hsv {
     /// Converts the 3 HSV values (ranging from 0.0 to 1.0) to RGB values
     /// (ranging from 0.0 to 1.0).
     /// Algorithm from https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_RGB
+    #[allow(clippy::wrong_self_convention)]
     fn to_rgb(&mut self) -> Rgb {
-        self.h = self.h % 1f32;
+        self.h %= 1f32;
 
         let mut rgb = Rgb {
             r: 0f32,
