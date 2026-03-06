@@ -186,7 +186,7 @@ impl LedDisplay {
         #[cfg(feature = "debug-output")]
         rprintln!("SORTED SCHEDULE: {:?}", s);
         s[1].1 -= s[0].1;
-        s[2].1 -= s[1].1;
+        s[2].1 -= s[1].1 + s[0].1;
         self.end_delay = TICKS_PER_FRAME - (s[2].1 + s[1].1 + s[0].1);
         self.next_schedule = s;
         #[cfg(feature = "debug-output")]
