@@ -211,7 +211,7 @@ impl LedDisplay {
                 self.rgb_pins[2].set_low();
                 self.color_index = 1;
                 self.timer0
-                    .start(MICRO_SEC_PER_STEP * self.schedule[0].1.max(20u32));
+                    .start(MICRO_SEC_PER_STEP * self.schedule[0].1.max(1u32));
             }
             1 => {
                 match self.schedule[0].0 {
@@ -221,7 +221,7 @@ impl LedDisplay {
                 };
                 self.color_index = 2;
                 self.timer0
-                    .start(MICRO_SEC_PER_STEP * self.schedule[1].1.max(20u32));
+                    .start(MICRO_SEC_PER_STEP * self.schedule[1].1.max(1u32));
             }
             2 => {
                 match self.schedule[1].0 {
@@ -231,7 +231,7 @@ impl LedDisplay {
                 };
                 self.color_index = 3;
                 self.timer0
-                    .start(MICRO_SEC_PER_STEP * self.schedule[2].1.max(20u32));
+                    .start(MICRO_SEC_PER_STEP * self.schedule[2].1.max(1u32));
             }
             _ => {
                 match self.schedule[2].0 {
@@ -241,7 +241,7 @@ impl LedDisplay {
                 };
                 self.color_index = 0;
                 self.timer0
-                    .start(MICRO_SEC_PER_STEP * self.end_delay.max(20u32));
+                    .start(MICRO_SEC_PER_STEP * self.end_delay.max(1u32));
             }
         }
     }
