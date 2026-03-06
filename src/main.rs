@@ -211,12 +211,6 @@ impl LedDisplay {
                 self.rgb_pins[2].set_low();
                 let delay_steps = self.schedule[0].1;
                 let d = MICRO_SEC_PER_STEP * delay_steps.max(20u32);
-
-                rprintln!(
-                    "-------------------------FRAME BEGIN-------------------------------"
-                );
-                rprintln!("SCHEDULE: {:?}", self.schedule);
-                rprintln!("START OF FRAME: delaying for {:?}", delay_steps);
                 self.color_index = 1;
                 self.timer0.start(d);
             }
@@ -228,12 +222,6 @@ impl LedDisplay {
                 };
                 let delay_steps = self.schedule[1].1;
                 let d = MICRO_SEC_PER_STEP * delay_steps.max(20u32);
-
-                rprintln!(
-                    "SET {:?} OFF: delaying for {:?}",
-                    self.schedule[0],
-                    delay_steps
-                );
                 self.color_index = 2;
                 self.timer0.start(d);
             }
@@ -245,12 +233,6 @@ impl LedDisplay {
                 };
                 let delay_steps = self.schedule[2].1;
                 let d = MICRO_SEC_PER_STEP * delay_steps.max(20u32);
-
-                rprintln!(
-                    "SET {:?} OFF: delaying for {:?}",
-                    self.schedule[1],
-                    delay_steps
-                );
                 self.color_index = 3;
                 self.timer0.start(d);
             }
@@ -261,15 +243,6 @@ impl LedDisplay {
                     Color::Blue => self.rgb_pins[2].set_high(),
                 };
                 let d = MICRO_SEC_PER_STEP * self.end_delay.max(20u32);
-
-                rprintln!(
-                    "SET {:?} OFF: delaying for {:?}",
-                    self.schedule[2],
-                    self.end_delay
-                );
-                rprintln!(
-                    "-------------------------FRAME END-------------------------------"
-                );
                 self.color_index = 0;
                 self.timer0.start(d);
             }
