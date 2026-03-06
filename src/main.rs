@@ -50,7 +50,7 @@ static LED: LockMut<LedDisplay> = LockMut::new();
 #[interrupt]
 fn TIMER0() {
     #[cfg(feature = "debug-output")]
-    rprintln!("💡INTERRUPT FUNC CALLED 💡");
+    rprintln!("INTERRUPT CALLED");
     LED.with_lock(|led| led.step());
 }
 
