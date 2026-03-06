@@ -209,10 +209,9 @@ impl LedDisplay {
                 self.rgb_pins[0].set_low();
                 self.rgb_pins[1].set_low();
                 self.rgb_pins[2].set_low();
-                let delay_steps = self.schedule[0].1;
-                let d = MICRO_SEC_PER_STEP * delay_steps.max(20u32);
                 self.color_index = 1;
-                self.timer0.start(d);
+                self.timer0
+                    .start(MICRO_SEC_PER_STEP * self.schedule[0].1.max(20u32));
             }
             1 => {
                 match self.schedule[0].0 {
@@ -220,10 +219,9 @@ impl LedDisplay {
                     Color::Green => self.rgb_pins[1].set_high(),
                     Color::Blue => self.rgb_pins[2].set_high(),
                 };
-                let delay_steps = self.schedule[1].1;
-                let d = MICRO_SEC_PER_STEP * delay_steps.max(20u32);
                 self.color_index = 2;
-                self.timer0.start(d);
+                self.timer0
+                    .start(MICRO_SEC_PER_STEP * self.schedule[1].1.max(20u32));
             }
             2 => {
                 match self.schedule[1].0 {
@@ -231,10 +229,9 @@ impl LedDisplay {
                     Color::Green => self.rgb_pins[1].set_high(),
                     Color::Blue => self.rgb_pins[2].set_high(),
                 };
-                let delay_steps = self.schedule[2].1;
-                let d = MICRO_SEC_PER_STEP * delay_steps.max(20u32);
                 self.color_index = 3;
-                self.timer0.start(d);
+                self.timer0
+                    .start(MICRO_SEC_PER_STEP * self.schedule[2].1.max(20u32));
             }
             _ => {
                 match self.schedule[2].0 {
@@ -242,9 +239,9 @@ impl LedDisplay {
                     Color::Green => self.rgb_pins[1].set_high(),
                     Color::Blue => self.rgb_pins[2].set_high(),
                 };
-                let d = MICRO_SEC_PER_STEP * self.end_delay.max(20u32);
                 self.color_index = 0;
-                self.timer0.start(d);
+                self.timer0
+                    .start(MICRO_SEC_PER_STEP * self.end_delay.max(20u32));
             }
         }
     }
