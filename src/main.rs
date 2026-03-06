@@ -274,50 +274,28 @@ impl Hsv {
     /// Converts the 3 HSV values (ranging from 0.0 to 1.0) to RGB values
     /// (ranging from 0.0 to 1.0).
     /// Algorithm from https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_RGB
-    #[allow(clippy::wrong_self_convention)]
-    fn to_rgb(&mut self) -> Rgb {
-        self.h %= 1f32;
-
-        let mut rgb = Rgb {
-            r: 0f32,
-            g: 0f32,
-            b: 0f32,
-        };
-        let hue_prime = (self.h * 360f32) / 60f32;
-        let sat = self.s;
-        let val = self.v;
-
-        let chroma = val * sat;
+    #[rustfmt::skip]
+    fn to_rgb(&self) -> Rgb {
+        let mut rgb: Rgb;
+        let hue_prime = ((self.h % 1f32) * 360f32) / 60f32;
+        let chroma = self.v * self.s;
         let x = chroma * (1f32 - (hue_prime % 2f32 - 1f32).abs());
 
         if hue_prime < 1f32 {
-            rgb.r = chroma;
-            rgb.g = x;
-            rgb.b = 0f32;
+            rgb = Rgb { r: chroma, g: x, b: 0f32 };
         } else if hue_prime < 2f32 {
-            rgb.r = x;
-            rgb.g = chroma;
-            rgb.b = 0f32;
+            rgb = Rgb { r: x, g: chroma, b: 0f32 };
         } else if hue_prime < 3f32 {
-            rgb.r = 0f32;
-            rgb.g = chroma;
-            rgb.b = x;
+            rgb = Rgb { r: 0f32, g: chroma, b: x };
         } else if hue_prime < 4f32 {
-            rgb.r = 0f32;
-            rgb.g = x;
-            rgb.b = chroma;
+            rgb = Rgb { r: 0f32, g: x, b: chroma };
         } else if hue_prime < 5f32 {
-            rgb.r = x;
-            rgb.g = 0f32;
-            rgb.b = chroma;
+            rgb = Rgb { r: x, g: 0f32, b: chroma };
         } else {
-            rgb.r = chroma;
-            rgb.g = 0f32;
-            rgb.b = x;
+            rgb = Rgb { r: chroma, g: 0f32, b: x };
         }
 
-        let m = val - chroma;
-
+        let m = self.v - chroma;
         rgb.r += m;
         rgb.g += m;
         rgb.b += m;
