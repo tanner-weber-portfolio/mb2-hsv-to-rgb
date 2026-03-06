@@ -203,7 +203,6 @@ impl LedDisplay {
     /// 100 ticks per frame (100 µs), 100 frames per second (10ms).
     fn step(&mut self) {
         self.timer0.reset_event();
-        rprintln!("👻 STEPPED STEPPED STEPPED");
         match self.color_index {
             0 => {
                 self.schedule = self.next_schedule.clone();
@@ -222,9 +221,11 @@ impl LedDisplay {
                 self.timer0.start(d);
             }
             1 => {
-                self.rgb_pins[0].set_high();
-                self.rgb_pins[1].set_low();
-                self.rgb_pins[2].set_low();
+                match self.schedule[0].0 {
+                    Color::Red => self.rgb_pins[0].set_high(),
+                    Color::Green => self.rgb_pins[1].set_high(),
+                    Color::Blue => self.rgb_pins[2].set_high(),
+                };
                 let delay_steps = self.schedule[1].1;
                 let d = MICRO_SEC_PER_STEP * delay_steps.max(20u32);
 
@@ -237,9 +238,11 @@ impl LedDisplay {
                 self.timer0.start(d);
             }
             2 => {
-                self.rgb_pins[0].set_high();
-                self.rgb_pins[1].set_high();
-                self.rgb_pins[2].set_low();
+                match self.schedule[1].0 {
+                    Color::Red => self.rgb_pins[0].set_high(),
+                    Color::Green => self.rgb_pins[1].set_high(),
+                    Color::Blue => self.rgb_pins[2].set_high(),
+                };
                 let delay_steps = self.schedule[2].1;
                 let d = MICRO_SEC_PER_STEP * delay_steps.max(20u32);
 
@@ -252,9 +255,11 @@ impl LedDisplay {
                 self.timer0.start(d);
             }
             _ => {
-                self.rgb_pins[0].set_high();
-                self.rgb_pins[1].set_high();
-                self.rgb_pins[2].set_high();
+                match self.schedule[2].0 {
+                    Color::Red => self.rgb_pins[0].set_high(),
+                    Color::Green => self.rgb_pins[1].set_high(),
+                    Color::Blue => self.rgb_pins[2].set_high(),
+                };
                 let d = MICRO_SEC_PER_STEP * self.end_delay.max(20u32);
 
                 rprintln!(
