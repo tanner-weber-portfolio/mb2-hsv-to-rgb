@@ -144,7 +144,9 @@ struct LedDisplay {
     schedule: [(Color, u32); 3],
     next_schedule: [(Color, u32); 3],
     end_delay: u32,
-    color_index: usize,
+    /// The current index in the schedule. Incremented with each step. Will be
+    /// 0 at the start of the frame.
+    sched_idx: usize,
     rgb_pins: [gpio::Pin<gpio::Output<gpio::PushPull>>; 3],
     timer0: Timer<pac::TIMER0>,
 }
@@ -171,7 +173,7 @@ impl LedDisplay {
             end_delay: 0u32,
             rgb_pins: pins,
             timer0,
-            color_index: 3usize,
+            sched_idx: 0usize,
         }
     }
 
@@ -203,29 +205,27 @@ impl LedDisplay {
     /// 100 ticks per frame (100 µs), 100 frames per second (10ms).
     fn step(&mut self) {
         self.timer0.reset_event();
-        match self.color_index {
+        match self.sched_idx {
             0 => {
                 for pin in &mut self.rgb_pins {
                     pin.set_low();
                 }
                 self.schedule = self.next_schedule.clone();
-                self.color_index = 1;
+                self.sched_idx = 1;
                 self.timer0
                     .start(MICRO_SEC_PER_STEP * self.schedule[0].1.max(1u32));
             }
             1 | 2 => {
-                self.set_pin_high(
-                    self.schedule[self.color_index - 1].0.clone(),
-                );
-                self.color_index += 1;
+                self.set_pin_high(self.schedule[self.sched_idx - 1].0.clone());
+                self.sched_idx += 1;
                 self.timer0.start(
                     MICRO_SEC_PER_STEP
-                        * self.schedule[self.color_index - 1].1.max(1u32),
+                        * self.schedule[self.sched_idx - 1].1.max(1u32),
                 );
             }
             _ => {
                 self.set_pin_high(self.schedule[2].0.clone());
-                self.color_index = 0;
+                self.sched_idx = 0;
                 self.timer0
                     .start(MICRO_SEC_PER_STEP * self.end_delay.max(1u32));
             }
@@ -267,7 +267,7 @@ impl Hsv {
 
     /// Converts the 3 HSV values (ranging from 0.0 to 1.0) to RGB values
     /// (ranging from 0.0 to 1.0).
-    /// Algorithm from https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_RGB
+    /// Algorithm from <https://en.wikipedia.org/wiki/HSL_and_HSV#HSV_to_RGB>
     #[rustfmt::skip]
     fn to_rgb(&self) -> Rgb {
         let mut rgb: Rgb;
