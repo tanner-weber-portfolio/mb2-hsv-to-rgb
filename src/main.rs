@@ -205,45 +205,39 @@ impl LedDisplay {
         self.timer0.reset_event();
         match self.color_index {
             0 => {
+                for pin in &mut self.rgb_pins {
+                    pin.set_low();
+                }
                 self.schedule = self.next_schedule.clone();
-                self.rgb_pins[0].set_low();
-                self.rgb_pins[1].set_low();
-                self.rgb_pins[2].set_low();
                 self.color_index = 1;
                 self.timer0
                     .start(MICRO_SEC_PER_STEP * self.schedule[0].1.max(1u32));
             }
-            1 => {
-                match self.schedule[0].0 {
-                    Color::Red => self.rgb_pins[0].set_high(),
-                    Color::Green => self.rgb_pins[1].set_high(),
-                    Color::Blue => self.rgb_pins[2].set_high(),
-                };
-                self.color_index = 2;
-                self.timer0
-                    .start(MICRO_SEC_PER_STEP * self.schedule[1].1.max(1u32));
-            }
-            2 => {
-                match self.schedule[1].0 {
-                    Color::Red => self.rgb_pins[0].set_high(),
-                    Color::Green => self.rgb_pins[1].set_high(),
-                    Color::Blue => self.rgb_pins[2].set_high(),
-                };
-                self.color_index = 3;
-                self.timer0
-                    .start(MICRO_SEC_PER_STEP * self.schedule[2].1.max(1u32));
+            1 | 2 => {
+                self.set_pin_high(
+                    self.schedule[self.color_index - 1].0.clone(),
+                );
+                self.color_index += 1;
+                self.timer0.start(
+                    MICRO_SEC_PER_STEP
+                        * self.schedule[self.color_index - 1].1.max(1u32),
+                );
             }
             _ => {
-                match self.schedule[2].0 {
-                    Color::Red => self.rgb_pins[0].set_high(),
-                    Color::Green => self.rgb_pins[1].set_high(),
-                    Color::Blue => self.rgb_pins[2].set_high(),
-                };
+                self.set_pin_high(self.schedule[2].0.clone());
                 self.color_index = 0;
                 self.timer0
                     .start(MICRO_SEC_PER_STEP * self.end_delay.max(1u32));
             }
         }
+    }
+
+    fn set_pin_high(&mut self, color: Color) {
+        match color {
+            Color::Red => self.rgb_pins[0].set_high(),
+            Color::Green => self.rgb_pins[1].set_high(),
+            Color::Blue => self.rgb_pins[2].set_high(),
+        };
     }
 }
 
