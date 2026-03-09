@@ -2,7 +2,10 @@
 
 Tanner Weber 2026
 
-This program lets the microbit v2 translate HSV into RGB to manipulate an LED.
+This program lets the microbit v2 translate HSV from a potentiometer into RGB
+to manipulate an LED.
+
+![Video demo in ./VIDEO.mkv](./VIDEO.mkv)
 
 # 🚀 Build and Run
 
