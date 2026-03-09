@@ -15,6 +15,10 @@ to manipulate an LED.
 
 # 📖 Writeup
 
+My implementation gets new RGB values each frame and uses that to calculate
+a schedule for the delays between each LED pin being turned off for PWM. I used
+an array of tuples containing a pin color and delay that gets sorted.
+
 # License
 
 Copyright (C) 2026 Tanner Weber
