@@ -189,7 +189,11 @@ impl LedDisplay {
         rprintln!("SORTED SCHEDULE: {:?}", s);
         s[1].1 -= s[0].1;
         s[2].1 -= s[1].1 + s[0].1;
-        self.end_delay = TICKS_PER_FRAME - (s[2].1 + s[1].1 + s[0].1);
+        self.end_delay = MICRO_SEC_PER_TICK
+            * (TICKS_PER_FRAME - (s[2].1 + s[1].1 + s[0].1));
+        for delay in s.iter_mut() {
+            delay.1 *= MICRO_SEC_PER_TICK;
+        }
         self.next_schedule = s;
         #[cfg(feature = "debug-output")]
         rprintln!(
@@ -206,28 +210,26 @@ impl LedDisplay {
     fn step(&mut self) {
         self.timer0.reset_event();
         match self.sched_idx {
+            // Start of the frame
             0 => {
                 for pin in &mut self.rgb_pins {
                     pin.set_low();
                 }
                 self.schedule = self.next_schedule.clone();
                 self.sched_idx = 1;
-                self.timer0
-                    .start(MICRO_SEC_PER_TICK * self.schedule[0].1.max(1u32));
+                self.timer0.start(self.schedule[0].1.max(1u32));
             }
             1 | 2 => {
                 self.set_pin_high(self.schedule[self.sched_idx - 1].0.clone());
                 self.sched_idx += 1;
-                self.timer0.start(
-                    MICRO_SEC_PER_TICK
-                        * self.schedule[self.sched_idx - 1].1.max(1u32),
-                );
+                self.timer0
+                    .start(self.schedule[self.sched_idx - 1].1.max(1u32));
             }
+            // End of the frame
             _ => {
                 self.set_pin_high(self.schedule[2].0.clone());
                 self.sched_idx = 0;
-                self.timer0
-                    .start(MICRO_SEC_PER_TICK * self.end_delay.max(1u32));
+                self.timer0.start(self.end_delay.max(1u32));
             }
         }
     }
