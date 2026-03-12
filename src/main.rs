@@ -212,7 +212,7 @@ impl LedDisplay {
         match self.sched_idx {
             // Start of the frame
             0 => {
-                for pin in &mut self.rgb_pins {
+                for pin in self.rgb_pins.iter_mut() {
                     pin.set_low();
                 }
                 self.schedule = self.next_schedule.clone();
