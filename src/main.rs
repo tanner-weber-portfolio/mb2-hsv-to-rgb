@@ -36,7 +36,7 @@ use panic_rtt_target as _;
 use rtt_target::rprintln;
 
 const FRAMETIME_MS: u32 = 10;
-const MICRO_SEC_PER_STEP: u32 = 100;
+const MICRO_SEC_PER_TICK: u32 = 100;
 const TICKS_PER_FRAME: u32 = 100;
 const POT_PIN_MAX_READ: i16 = 16_000;
 const BUTTON_DELAY_FRAMES_COUNT: u32 = 15;
@@ -213,13 +213,13 @@ impl LedDisplay {
                 self.schedule = self.next_schedule.clone();
                 self.sched_idx = 1;
                 self.timer0
-                    .start(MICRO_SEC_PER_STEP * self.schedule[0].1.max(1u32));
+                    .start(MICRO_SEC_PER_TICK * self.schedule[0].1.max(1u32));
             }
             1 | 2 => {
                 self.set_pin_high(self.schedule[self.sched_idx - 1].0.clone());
                 self.sched_idx += 1;
                 self.timer0.start(
-                    MICRO_SEC_PER_STEP
+                    MICRO_SEC_PER_TICK
                         * self.schedule[self.sched_idx - 1].1.max(1u32),
                 );
             }
@@ -227,7 +227,7 @@ impl LedDisplay {
                 self.set_pin_high(self.schedule[2].0.clone());
                 self.sched_idx = 0;
                 self.timer0
-                    .start(MICRO_SEC_PER_STEP * self.end_delay.max(1u32));
+                    .start(MICRO_SEC_PER_TICK * self.end_delay.max(1u32));
             }
         }
     }
